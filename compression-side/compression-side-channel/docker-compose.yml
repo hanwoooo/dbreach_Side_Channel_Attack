@@ -1,0 +1,59 @@
+version: '3.8'
+
+services:
+  mariadb:
+    image: mariadb:10.3.29
+    container_name: mariadb_container
+    restart: unless-stopped
+    environment:
+      - MARIADB_ROOT_PASSWORD=your_root_password     # 루트 계정 비밀번호
+      - MARIADB_DATABASE=flask_db                    # 자동 생성할 DB
+      - MARIADB_USER=flask_user                      # 자동 생성할 사용자
+      - MARIADB_PASSWORD=flask_pass                  # 자동 생성할 사용자의 비밀번호
+    volumes:
+      # 1) my.cnf (압축/암호화 설정 포함)
+      - ./mariadb/my.cnf:/etc/mysql/my.cnf
+      # 2) DB 데이터 영구 저장 볼륨
+      - mariadb_data:/var/lib/mysql
+      # 3) File Key Management 키 파일 (읽기 전용 권장)
+      - ./mariadb/encryption/keyfile:/etc/mysql/encryption/keyfile:ro
+    ports:
+      - "3307:3306"
+
+  mongo:
+    image: mongo:6.0
+    container_name: mongo_container
+    restart: unless-stopped
+    environment:
+      - MONGO_INITDB_ROOT_USERNAME=mongo_root
+      - MONGO_INITDB_ROOT_PASSWORD=mongo_root_password
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+
+  flask:
+    build:
+      context: ./flask
+      dockerfile: Dockerfile
+    container_name: flask_container
+    restart: unless-stopped
+    depends_on:
+      - mariadb
+      - mongo
+    ports:
+      - "5000:5000"
+    environment:
+      # Flask 앱에서 DB 연결 시 참고할 환경변수
+      - DB_HOST=mariadb_container
+      - DB_USER=flask_user
+      - DB_PASSWORD=flask_pass
+      - DB_NAME=flask_db
+
+      - MONGO_HOST=mongo_container
+      - MONGO_USER=mongo_root
+      - MONGO_PASS=mongo_root_password
+
+volumes:
+  mariadb_data:
+  mongo_data:
